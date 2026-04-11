@@ -12,6 +12,7 @@ app.registerExtension({
 
         let photopeaWindow = null;
         let persistentContainer = null;
+        let lastRequestingNodeId = null;
 
         const config = {
             "environment": {
@@ -38,44 +39,20 @@ app.registerExtension({
             persistentContainer.style.zIndex = "10001";
             persistentContainer.style.background = "#000";
             persistentContainer.style.pointerEvents = "auto";
-
-            const toolbar = document.createElement("div");
-            toolbar.style.display = "flex";
-            toolbar.style.padding = "5px";
-            toolbar.style.gap = "5px";
-            toolbar.style.background = "#222";
-
-            const importBtn = document.createElement("button");
-            importBtn.innerText = "Import to Selected LoadImage";
-            importBtn.style.flex = "1";
-            importBtn.onclick = () => {
-                console.log("PhotopeaTab: Import button clicked");
-                if (photopeaWindow) {
-                    console.log("PhotopeaTab: Requesting save from Photopea...");
-                    photopeaWindow.postMessage("app.activeDocument.saveToOE('png')", "*");
-                } else {
-                    console.error("PhotopeaTab: photopeaWindow link is missing!");
-                }
-            };
-            
-            toolbar.appendChild(importBtn);
-            persistentContainer.appendChild(toolbar);
+            persistentContainer.style.overflow = "hidden";
 
             const iframe = document.createElement("iframe");
             iframe.style.flex = "1";
             iframe.style.border = "none";
-            iframe.style.width = "100%";
+            iframe.style.width = "calc(100% + 300px)";
             iframe.style.height = "100%";
             iframe.allow = "clipboard-read; clipboard-write; shift-ctrl-copy-paste";
             
             persistentContainer.appendChild(iframe);
             document.body.appendChild(persistentContainer);
             
-            // Set src after appending to body
             iframe.src = `https://www.photopea.com#${encodedConfig}`;
             photopeaWindow = iframe.contentWindow;
-            
-            console.log("Photopea persistent container initialized at 100,100");
         };
 
         setupPersistentContainer();
@@ -100,10 +77,20 @@ app.registerExtension({
                             const result = await response.json();
                             console.log("PhotopeaTab: Uploaded successfully:", result.name);
                             
-                            const selectedNodes = app.canvas.selected_nodes;
+                            let nodesToUpdate = [];
+                            if (lastRequestingNodeId) {
+                                const node = app.graph.getNodeById(lastRequestingNodeId);
+                                if (node) nodesToUpdate.push(node);
+                                lastRequestingNodeId = null; // Reset
+                            } else {
+                                const selectedNodes = app.canvas.selected_nodes;
+                                for (const id in selectedNodes) {
+                                    nodesToUpdate.push(selectedNodes[id]);
+                                }
+                            }
+
                             let updatedCount = 0;
-                            for (const id in selectedNodes) {
-                                const node = selectedNodes[id];
+                            for (const node of nodesToUpdate) {
                                 if (node.comfyClass === "LoadImage") {
                                     const widget = node.widgets.find(w => w.name === "image");
                                     if (widget) {
@@ -175,11 +162,10 @@ app.registerExtension({
 
     getNodeMenuItems(node) {
         const items = [];
-        
-        // Detect if node has images
-        // node.imgs is common for PreviewImage/SaveImage
-        // node.widgets containing "image" is common for LoadImage
-        if (node.imgs?.length > 0 || (node.widgets && node.widgets.some(w => w.name === "image"))) {
+        const hasImages = node.imgs?.length > 0 || (node.widgets && node.widgets.some(w => w.name === "image"));
+        const isLoadImage = node.comfyClass === "LoadImage";
+
+        if (hasImages) {
             items.push({
                 content: "Open in Photopea",
                 callback: async () => {
@@ -194,13 +180,10 @@ app.registerExtension({
                     }
 
                     if (imageUrl) {
-                        // Switch to Photopea tab
                         const tabBtn = document.querySelector(`.comfy-sidebar-tab-btn[data-id="photopea-sidebar-tab"]`) || 
                                        document.querySelector(`.comfy-sidebar-tab-btn[title="Photopea"]`);
-                        if (tabBtn) {
-                            tabBtn.click();
-                        } else {
-                            // Try newer UI selector if available
+                        if (tabBtn) tabBtn.click();
+                        else {
                             const sideBtn = document.querySelector(`button[data-tab-id="photopea-sidebar-tab"]`);
                             if (sideBtn) sideBtn.click();
                         }
@@ -209,21 +192,33 @@ app.registerExtension({
                             console.log("PhotopeaTab: Opening image in Photopea:", imageUrl);
                             const response = await fetch(imageUrl);
                             if (!response.ok) throw new Error("Failed to fetch image");
-                            
                             const blob = await response.blob();
                             const buffer = await blob.arrayBuffer();
-                            
                             const photopeaContainer = document.querySelector("#photopea-persistent-container");
                             const photopeaIframe = photopeaContainer?.querySelector("iframe");
                             if (photopeaIframe?.contentWindow) {
                                 console.log("PhotopeaTab: Sending buffer to Photopea", buffer.byteLength);
                                 photopeaIframe.contentWindow.postMessage(buffer, "*");
-                            } else {
-                                console.error("PhotopeaTab: Photopea iframe not found or window not accessible");
                             }
                         } catch (err) {
                             console.error("PhotopeaTab: Failed to send image to Photopea", err);
                         }
+                    }
+                }
+            });
+        }
+
+        if (isLoadImage) {
+            items.push({
+                content: "Import from Photopea",
+                callback: () => {
+                    console.log("PhotopeaTab: Context menu Import clicked for node:", node.id);
+                    lastRequestingNodeId = node.id;
+                    const photopeaContainer = document.querySelector("#photopea-persistent-container");
+                    const photopeaIframe = photopeaContainer?.querySelector("iframe");
+                    if (photopeaIframe?.contentWindow) {
+                        console.log("PhotopeaTab: Requesting save from Photopea...");
+                        photopeaIframe.contentWindow.postMessage("app.activeDocument.saveToOE('png')", "*");
                     }
                 }
             });
