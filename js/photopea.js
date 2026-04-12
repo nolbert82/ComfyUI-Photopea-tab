@@ -35,6 +35,52 @@ app.registerExtension({
             .pi-photopea-logo::before {
                 content: "" !important;
             }
+            .photopea-toolbar {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 0 10px;
+                background: #111;
+                border-bottom: 1px solid #333;
+                color: #ddd;
+                font-family: sans-serif;
+                font-size: 11px;
+                height: 34px;
+                box-sizing: border-box;
+                flex-shrink: 0;
+            }
+            .photopea-toolbar-select {
+                background: #222;
+                border: 1px solid #444;
+                color: #eee;
+                padding: 2px;
+                border-radius: 4px;
+                outline: none;
+                font-size: 11px;
+                cursor: pointer;
+            }
+            .photopea-toolbar-btn {
+                background: #222;
+                border: 1px solid #444;
+                color: #eee;
+                padding: 3px 8px;
+                border-radius: 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 11px;
+                transition: all 0.2s;
+            }
+            .photopea-toolbar-btn:hover {
+                background: #333;
+                border-color: #555;
+            }
+            .photopea-toolbar-btn.active {
+                background: #3b82f6;
+                border-color: #60a5fa;
+                color: white;
+            }
         `;
         document.head.appendChild(style);
 
@@ -49,6 +95,10 @@ app.registerExtension({
         };
         const encodedConfig = encodeURIComponent(JSON.stringify(config));
 
+        let adsHidden = false;
+        let isMaximized = false;
+        let wasMaximizedBeforeFS = false;
+        let uiZoom = 1.0;
         const setupPersistentContainer = () => {
             if (persistentContainer) return;
 
@@ -65,11 +115,93 @@ app.registerExtension({
             persistentContainer.style.pointerEvents = "auto";
             persistentContainer.style.overflow = "hidden";
 
+            // Add Toolbar
+            const toolbar = document.createElement("div");
+            toolbar.className = "photopea-toolbar";
+            toolbar.innerHTML = `
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="pi pi-photopea-logo" style="width:16px; height:16px;"></i>
+                    <span style="font-weight:bold; opacity:0.9;">Photopea</span>
+                </div>
+                <div style="flex:1;"></div>
+                <div style="display:flex; align-items:center; gap:2px;">
+                    <button class="photopea-toolbar-btn" id="photopea-ui-zoom-out" title="Zoom Out (UI)">
+                        <i class="pi pi-minus" style="font-size: 9px;"></i>
+                    </button>
+                    <button class="photopea-toolbar-btn" id="photopea-ui-zoom-100" style="font-size: 10px; padding: 3px 6px;" title="Reset Zoom">
+                         100%
+                    </button>
+                    <button class="photopea-toolbar-btn" id="photopea-ui-zoom-in" title="Zoom In (UI)">
+                        <i class="pi pi-plus" style="font-size: 9px;"></i>
+                    </button>
+                </div>
+                <div style="width: 4px;"></div>
+                <button class="photopea-toolbar-btn" id="photopea-ad-toggle" title="Hide Ads (+300px width)">
+                    <i class="pi pi-eye-slash"></i>
+                </button>
+                <button class="photopea-toolbar-btn" id="photopea-maximize-toggle" title="Maximize View (Fill Screen)">
+                    <i class="pi pi-window-maximize"></i>
+                </button>
+                <button class="photopea-toolbar-btn" id="photopea-fullscreen-btn" title="Browser Fullscreen">
+                    <i class="pi pi-expand"></i>
+                </button>
+            `;
+
+            const refreshZoomUI = () => {
+                const btn = toolbar.querySelector("#photopea-ui-zoom-100");
+                if (btn) btn.textContent = `${Math.round(uiZoom * 100)}%`;
+            };
+
+            toolbar.querySelector("#photopea-ui-zoom-in").onclick = () => { uiZoom += 0.05; refreshZoomUI(); };
+            toolbar.querySelector("#photopea-ui-zoom-out").onclick = () => { uiZoom = Math.max(0.1, uiZoom - 0.05); refreshZoomUI(); };
+            toolbar.querySelector("#photopea-ui-zoom-100").onclick = () => { uiZoom = 1.0; refreshZoomUI(); };
+            refreshZoomUI(); // Initial value
+
+            const adToggle = toolbar.querySelector("#photopea-ad-toggle");
+            adToggle.onclick = () => {
+                adsHidden = !adsHidden;
+                adToggle.classList.toggle("active", adsHidden);
+            };
+
+            const maximizeToggle = toolbar.querySelector("#photopea-maximize-toggle");
+            const updateUI = () => {
+                const isFS = !!document.fullscreenElement;
+                maximizeToggle.style.display = isFS ? "none" : "flex";
+                maximizeToggle.classList.toggle("active", isMaximized);
+                maximizeToggle.querySelector("i").className = isMaximized ? "pi pi-window-minimize" : "pi pi-window-maximize";
+            };
+
+            maximizeToggle.onclick = () => {
+                isMaximized = !isMaximized;
+                updateUI();
+            };
+
+            const fullscreenBtn = toolbar.querySelector("#photopea-fullscreen-btn");
+            fullscreenBtn.onclick = () => {
+                if (!document.fullscreenElement) {
+                    wasMaximizedBeforeFS = isMaximized;
+                    isMaximized = true; // Must be true for fullscreen container to fill
+                    persistentContainer.requestFullscreen().catch(e => console.error(e));
+                } else {
+                    document.exitFullscreen();
+                }
+            };
+
+            document.addEventListener("fullscreenchange", () => {
+                if (!document.fullscreenElement) {
+                    isMaximized = wasMaximizedBeforeFS;
+                }
+                updateUI();
+            });
+
+            persistentContainer.appendChild(toolbar);
+
             const iframe = document.createElement("iframe");
-            iframe.style.flex = "1";
+            iframe.id = "photopea-iframe";
             iframe.style.border = "none";
             iframe.style.width = "100%";
             iframe.style.height = "100%";
+            iframe.style.flex = "none"; // Required for UI scaling to work properly
             iframe.allow = "clipboard-read; clipboard-write; shift-ctrl-copy-paste";
 
             persistentContainer.appendChild(iframe);
@@ -154,6 +286,28 @@ app.registerExtension({
 
         // Global tracking loop
         const syncPosition = () => {
+            if (isMaximized) {
+                persistentContainer.style.visibility = "visible";
+                persistentContainer.style.top = "0";
+                persistentContainer.style.left = "0";
+                persistentContainer.style.width = "100vw";
+                persistentContainer.style.height = "100vh";
+                persistentContainer.style.display = "flex";
+
+                const iframe = document.getElementById("photopea-iframe");
+                if (iframe) {
+                    const extraWidth = adsHidden ? 300 : 0;
+                    const w = window.innerWidth;
+                    const h = window.innerHeight - 34; // Subtract toolbar
+                    iframe.style.width = `${(w + extraWidth) / uiZoom}px`;
+                    iframe.style.height = `${h / uiZoom}px`;
+                    iframe.style.transform = `scale(${uiZoom})`;
+                    iframe.style.transformOrigin = "top left";
+                }
+                requestAnimationFrame(syncPosition);
+                return;
+            }
+
             const anchor = document.getElementById("photopea-tab-anchor");
             if (!anchor || !persistentContainer) {
                 if (persistentContainer) {
@@ -173,6 +327,17 @@ app.registerExtension({
                 persistentContainer.style.width = `${rect.width}px`;
                 persistentContainer.style.height = `${rect.height}px`;
                 persistentContainer.style.display = "flex";
+
+                const iframe = document.getElementById("photopea-iframe");
+                if (iframe) {
+                    const extraWidth = adsHidden ? 300 : 0;
+                    const w = rect.width;
+                    const h = rect.height - 34;
+                    iframe.style.width = `${(w + extraWidth) / uiZoom}px`;
+                    iframe.style.height = `${h / uiZoom}px`;
+                    iframe.style.transform = `scale(${uiZoom})`;
+                    iframe.style.transformOrigin = "top left";
+                }
             } else {
                 persistentContainer.style.visibility = "hidden";
                 persistentContainer.style.left = "-10000px";
