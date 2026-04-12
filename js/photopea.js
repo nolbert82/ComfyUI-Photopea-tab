@@ -333,7 +333,7 @@ app.registerExtension({
                     const extraWidth = adsHidden ? 300 : 0;
                     const w = rect.width;
                     const h = rect.height - 34;
-                    iframe.style.width = `${(w + extraWidth) / uiZoom}px`;
+                    iframe.style.width = `${(w + extraWidth * uiZoom) / uiZoom}px`;
                     iframe.style.height = `${h / uiZoom}px`;
                     iframe.style.transform = `scale(${uiZoom})`;
                     iframe.style.transformOrigin = "top left";
