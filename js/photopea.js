@@ -1,6 +1,10 @@
 console.log("Photopea Tab extension script loaded.");
 import { app } from "../../scripts/app.js";
 
+let photopeaWindow = null;
+let persistentContainer = null;
+let lastRequestingNodeId = null;
+
 app.registerExtension({
     name: "Comfy.PhotopeaTab",
     setup() {
@@ -9,10 +13,6 @@ app.registerExtension({
             console.warn("Sidebar Tab API not available. This extension requires a newer version of ComfyUI.");
             return;
         }
-
-        let photopeaWindow = null;
-        let persistentContainer = null;
-        let lastRequestingNodeId = null;
 
         const config = {
             "environment": {
@@ -44,13 +44,13 @@ app.registerExtension({
             const iframe = document.createElement("iframe");
             iframe.style.flex = "1";
             iframe.style.border = "none";
-            iframe.style.width = "calc(100% + 300px)";
+            iframe.style.width = "100%";
             iframe.style.height = "100%";
             iframe.allow = "clipboard-read; clipboard-write; shift-ctrl-copy-paste";
-            
+
             persistentContainer.appendChild(iframe);
             document.body.appendChild(persistentContainer);
-            
+
             iframe.src = `https://www.photopea.com#${encodedConfig}`;
             photopeaWindow = iframe.contentWindow;
         };
@@ -62,21 +62,21 @@ app.registerExtension({
             if (persistentContainer && e.source === photopeaWindow) {
                 if (e.data instanceof ArrayBuffer) {
                     console.log("PhotopeaTab: Received ArrayBuffer from Photopea", e.data.byteLength);
-                    
+
                     const formData = new FormData();
                     formData.append("image", new Blob([e.data]), "photopea_export.png");
                     formData.append("overwrite", "true");
-                    
+
                     try {
                         const response = await fetch("/upload/image", {
                             method: "POST",
                             body: formData
                         });
-                        
+
                         if (response.ok) {
                             const result = await response.json();
                             console.log("PhotopeaTab: Uploaded successfully:", result.name);
-                            
+
                             let nodesToUpdate = [];
                             if (lastRequestingNodeId) {
                                 const node = app.graph.getNodeById(lastRequestingNodeId);
@@ -153,7 +153,7 @@ app.registerExtension({
                 persistentContainer.style.visibility = "hidden";
                 persistentContainer.style.left = "-10000px";
             }
-            
+
             requestAnimationFrame(syncPosition);
         };
 
@@ -180,14 +180,14 @@ app.registerExtension({
                     }
 
                     if (imageUrl) {
-                        const tabBtn = document.querySelector(`.comfy-sidebar-tab-btn[data-id="photopea-sidebar-tab"]`) || 
-                                       document.querySelector(`.comfy-sidebar-tab-btn[title="Photopea"]`);
+                        const tabBtn = document.querySelector(`.comfy-sidebar-tab-btn[data-id="photopea-sidebar-tab"]`) ||
+                            document.querySelector(`.comfy-sidebar-tab-btn[title="Photopea"]`);
                         if (tabBtn) tabBtn.click();
                         else {
                             const sideBtn = document.querySelector(`button[data-tab-id="photopea-sidebar-tab"]`);
                             if (sideBtn) sideBtn.click();
                         }
-                        
+
                         try {
                             console.log("PhotopeaTab: Opening image in Photopea:", imageUrl);
                             const response = await fetch(imageUrl);
@@ -223,7 +223,7 @@ app.registerExtension({
                 }
             });
         }
-        
+
         return items;
     }
 });
