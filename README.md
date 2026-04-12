@@ -1,6 +1,6 @@
 # ComfyUI Photopea Tab Implementation
 
-I have implemented a custom extension for ComfyUI that integrates **Photopea**, a powerful web-based photo editor, directly into the sidebar.
+A custom extension for ComfyUI that integrates **Photopea**, a powerful web-based photo editor, directly into the sidebar.
 
 ## Key Features
 - **Sidebar Integration**: Access Photopea instantly from the new ComfyUI sidebar.
@@ -16,8 +16,3 @@ I have implemented a custom extension for ComfyUI that integrates **Photopea**, 
 1. **Open Photopea**: Click the palette icon in the sidebar.
 2. **Edit Images**: Right-click a node with an image and select **"Open in Photopea"**. The image will be loaded into the editor.
 3. **Save Back**: Right-click a `LoadImage` node in your graph and select **"Import from Photopea"**. The edited image will be fetched from the editor and assigned to the node. You can also select multiple `LoadImage` nodes and trigger the import to update all of them at once.
-
-## Technical Details
-- Uses `app.extensionManager.registerSidebarTab` for seamless UI integration.
-- Leverages the [Photopea Live API](https://www.photopea.com/api/live) for secure cross-origin communication.
-- Implements the new ComfyUI Context Menu API for future-proof compatibility.
