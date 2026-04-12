@@ -14,6 +14,30 @@ app.registerExtension({
             return;
         }
 
+        // Inject custom icon style
+        const style = document.createElement("style");
+        style.textContent = `
+            .pi-photopea-logo {
+                mask-image: url('/extensions/ComfyUI-Photopea-tab/photopea_logo.svg');
+                -webkit-mask-image: url('/extensions/ComfyUI-Photopea-tab/photopea_logo.svg');
+                mask-size: contain;
+                -webkit-mask-size: contain;
+                mask-repeat: no-repeat;
+                -webkit-mask-repeat: no-repeat;
+                mask-position: center;
+                -webkit-mask-position: center;
+                background-color: currentColor;
+                width: 20px;
+                height: 20px;
+                display: inline-block;
+                vertical-align: middle;
+            }
+            .pi-photopea-logo::before {
+                content: "" !important;
+            }
+        `;
+        document.head.appendChild(style);
+
         const config = {
             "environment": {
                 "theme": 2, // Dark theme
@@ -117,7 +141,7 @@ app.registerExtension({
 
         app.extensionManager.registerSidebarTab({
             id: "photopea-sidebar-tab",
-            icon: "pi pi-palette",
+            icon: "pi pi-photopea-logo",
             title: "Photopea",
             tooltip: "Photopea Photo Editor",
             type: "custom",
