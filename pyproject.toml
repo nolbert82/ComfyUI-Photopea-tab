@@ -1,15 +1,15 @@
 # pyproject.toml
 [project]
-name = "Photopea-Sidebar"
+name = "Photopea-Tab"
 description = "A custom extension for ComfyUI that integrates Photopea directly into the sidebar."
 version = "1.0.0"
 license = { file = "LICENSE.txt" }
 dependencies  = []
 
 [project.urls]
-Repository = "https://github.com/nolbert82/ComfyUI-Photopea-Sidebar"
+Repository = "https://github.com/nolbert82/ComfyUI-Photopea-tab"
 
 [tool.comfy]
 PublisherId = "nolbert82"
-DisplayName = "Photopea Sidebar"
+DisplayName = "Photopea Tab"
 Icon = "./icon.png"
