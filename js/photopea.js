@@ -4,6 +4,7 @@ import { app } from "../../scripts/app.js";
 let photopeaWindow = null;
 let persistentContainer = null;
 let lastRequestingNodeId = null;
+let lastExportKind = "image"; // "image", "layer", "mask"
 
 app.registerExtension({
     name: "Comfy.PhotopeaTab",
@@ -219,8 +220,11 @@ app.registerExtension({
                 if (e.data instanceof ArrayBuffer) {
                     console.log("PhotopeaTab: Received ArrayBuffer from Photopea", e.data.byteLength);
 
+                    let prefix = "photopea_";
+                    if (lastExportKind === "layer_fit") prefix = "photopea_fit_";
+                    const filename = lastRequestingNodeId ? `${prefix}${lastRequestingNodeId}.png` : "photopea_export.png";
                     const formData = new FormData();
-                    formData.append("image", new Blob([e.data]), "photopea_export.png");
+                    formData.append("image", new Blob([e.data]), filename);
                     formData.append("overwrite", "true");
 
                     try {
@@ -237,7 +241,8 @@ app.registerExtension({
                             if (lastRequestingNodeId) {
                                 const node = app.graph.getNodeById(lastRequestingNodeId);
                                 if (node) nodesToUpdate.push(node);
-                                lastRequestingNodeId = null; // Reset
+                                lastRequestingNodeId = null;
+                                lastExportKind = "image";
                             } else {
                                 const selectedNodes = app.canvas.selected_nodes;
                                 for (const id in selectedNodes) {
@@ -254,7 +259,6 @@ app.registerExtension({
                                         if (widget.callback) {
                                             widget.callback(widget.value);
                                         }
-                                        node.onWidgetChanged?.("image", result.name);
                                         updatedCount++;
                                     }
                                 }
@@ -356,7 +360,7 @@ app.registerExtension({
 
         if (hasImages) {
             items.push({
-                content: "Open in Photopea",
+                content: "Photopea - Open image",
                 callback: async () => {
                     let imageUrl = null;
                     if (node.imgs?.length > 0) {
@@ -398,18 +402,81 @@ app.registerExtension({
         }
 
         if (isLoadImage) {
-            items.push({
-                content: "Import from Photopea",
-                callback: () => {
-                    console.log("PhotopeaTab: Context menu Import clicked for node:", node.id);
-                    lastRequestingNodeId = node.id;
-                    const photopeaContainer = document.querySelector("#photopea-persistent-container");
-                    const photopeaIframe = photopeaContainer?.querySelector("iframe");
-                    if (photopeaIframe?.contentWindow) {
-                        console.log("PhotopeaTab: Requesting save from Photopea...");
+            const sendExportScript = (nodeId, kind) => {
+                lastRequestingNodeId = nodeId;
+                lastExportKind = kind;
+                const photopeaContainer = document.querySelector("#photopea-persistent-container");
+                const photopeaIframe = photopeaContainer?.querySelector("iframe");
+                if (photopeaIframe?.contentWindow) {
+                    if (kind === "image") {
+                        console.log("PhotopeaTab: Requesting full document save...");
                         photopeaIframe.contentWindow.postMessage("app.activeDocument.saveToOE('png')", "*");
+                    } else if (kind === "layer") {
+                        console.log(`PhotopeaTab: Requesting layer save...`);
+                        const script = `
+                            (function() {
+                                var doc = app.activeDocument;
+                                var active = doc.activeLayer;
+                                if (!active) return;
+                                var states = [];
+                                function collect(cont) {
+                                    for (var i = 0; i < cont.layers.length; i++) {
+                                        states.push({l: cont.layers[i], v: cont.layers[i].visible});
+                                        if (cont.layers[i].layers) collect(cont.layers[i]);
+                                    }
+                                }
+                                collect(doc);
+                                for (var i = 0; i < states.length; i++) states[i].l.visible = false;
+                                var curr = active;
+                                while (curr && curr !== doc) {
+                                    curr.visible = true;
+                                    curr = curr.parent;
+                                }
+                                doc.saveToOE("png");
+                                for (var i = 0; i < states.length; i++) states[i].l.visible = states[i].v;
+                            })();
+                        `;
+                        photopeaIframe.contentWindow.postMessage(script, "*");
+                    } else if (kind === "layer_fit") {
+                        console.log(`PhotopeaTab: Requesting layer save (fit size)...`);
+                        const script = `
+                            (function() {
+                                var doc = app.activeDocument;
+                                var active = doc.activeLayer;
+                                if (!active) return;
+                                
+                                // Create a temporary document of the same size
+                                var newDoc = app.documents.add(doc.width, doc.height, doc.resolution, "Fit Export", 2, 1);
+                                
+                                // Select original doc to duplicate from
+                                app.activeDocument = doc;
+                                active.duplicate(newDoc);
+                                
+                                // Switch to new doc, trim and save
+                                app.activeDocument = newDoc;
+                                try { newDoc.trim(0); } catch(e) {}
+                                newDoc.saveToOE("png");
+                                newDoc.close(2);
+                            })();
+                        `;
+                        photopeaIframe.contentWindow.postMessage(script, "*");
                     }
                 }
+            };
+
+            items.push({
+                content: "Photopea - Import image",
+                callback: () => sendExportScript(node.id, "image")
+            });
+
+            items.push({
+                content: "Photopea - Import layer",
+                callback: () => sendExportScript(node.id, "layer")
+            });
+
+            items.push({
+                content: "Photopea - Import layer: fit size",
+                callback: () => sendExportScript(node.id, "layer_fit")
             });
         }
 
