@@ -2,7 +2,7 @@
 [project]
 name = "Photopea-Tab"
 description = "A custom extension for ComfyUI that integrates Photopea directly into the sidebar."
-version = "1.0.0"
+version = "1.1.0"
 license = { file = "LICENSE.txt" }
 dependencies  = []
 

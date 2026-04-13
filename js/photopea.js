@@ -111,7 +111,7 @@ app.registerExtension({
             persistentContainer.style.visibility = "hidden";
             persistentContainer.style.display = "flex";
             persistentContainer.style.flexDirection = "column";
-            persistentContainer.style.zIndex = "10001";
+            persistentContainer.style.zIndex = "1000"; // Adjusted to 1000 to be above sidebar but below most menus
             persistentContainer.style.background = "#000";
             persistentContainer.style.pointerEvents = "auto";
             persistentContainer.style.overflow = "hidden";
@@ -290,6 +290,7 @@ app.registerExtension({
 
         // Global tracking loop
         const syncPosition = () => {
+
             if (isMaximized) {
                 persistentContainer.style.visibility = "visible";
                 persistentContainer.style.top = "0";
@@ -313,11 +314,9 @@ app.registerExtension({
             }
 
             const anchor = document.getElementById("photopea-tab-anchor");
-            if (!anchor || !persistentContainer) {
-                if (persistentContainer) {
-                    persistentContainer.style.visibility = "hidden";
-                    persistentContainer.style.left = "-10000px";
-                }
+            if (!anchor) {
+                persistentContainer.style.visibility = "hidden";
+                persistentContainer.style.left = "-10000px";
                 requestAnimationFrame(syncPosition);
                 return;
             }
