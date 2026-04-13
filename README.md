@@ -8,7 +8,7 @@ Four new buttons have been added when clicking on images nodes :
 - Open in Photopea
 - Import from Photopea
 - Import selected layer
-- Import selected layer as mask
+- Import selected layer and fit layer size
 
 You can also:
 - Hide ads via a toggle
