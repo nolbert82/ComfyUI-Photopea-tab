@@ -11,3 +11,7 @@ You can also:
 - Zoom in-and-out
 - Maximize the page's width
 - Toggle Fullscreen
+
+Upcoming features:
+- Import selected layer
+- Import selected layer as mask
