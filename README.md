@@ -1,4 +1,4 @@
-# ComfyUI Photopea Tab Implementation
+# ComfyUI Photopea Tab
 
 A custom extension for ComfyUI that integrates **Photopea**, a powerful web-based photo editor, directly into the sidebar.
 
