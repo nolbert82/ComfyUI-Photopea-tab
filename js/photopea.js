@@ -15,12 +15,15 @@ app.registerExtension({
             return;
         }
 
+        const baseUrl = new URL(".", import.meta.url).href;
+        const logoUrl = `${baseUrl}photopea_logo.svg`;
+
         // Inject custom icon style
         const style = document.createElement("style");
         style.textContent = `
             .pi-photopea-logo {
-                mask-image: url('/extensions/ComfyUI-Photopea-tab/photopea_logo.svg');
-                -webkit-mask-image: url('/extensions/ComfyUI-Photopea-tab/photopea_logo.svg');
+                mask-image: url('${logoUrl}');
+                -webkit-mask-image: url('${logoUrl}');
                 mask-size: contain;
                 -webkit-mask-size: contain;
                 mask-repeat: no-repeat;
@@ -28,8 +31,8 @@ app.registerExtension({
                 mask-position: center;
                 -webkit-mask-position: center;
                 background-color: currentColor;
-                width: 20px;
-                height: 20px;
+                width: 1.2rem;
+                height: 1.2rem;
                 display: inline-block;
                 vertical-align: middle;
             }
